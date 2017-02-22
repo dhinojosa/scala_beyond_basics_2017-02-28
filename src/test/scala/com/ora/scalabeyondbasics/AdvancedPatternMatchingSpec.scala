@@ -30,7 +30,6 @@ class AdvancedPatternMatchingSpec extends FunSpec with Matchers {
       y should be("Foo")
       t should be(100 -> "Foo")
       t should be(100, "Foo")
-      //t should be (100, "Foo")  //Works, although IntelliJ is lying
     }
 
     it("can be used with an Optional, and often is used as such, let's do a Some") {
@@ -57,6 +56,7 @@ class AdvancedPatternMatchingSpec extends FunSpec with Matchers {
     it("""can use an _ even in an assignment, although, only if you wish match a particular
           |  shape""".stripMargin) {
       val a@(_: Int) = 40
+      //val a:Int = 40
       a should be(40)
     }
 
@@ -128,10 +128,10 @@ class AdvancedPatternMatchingSpec extends FunSpec with Matchers {
     it(
       """can do a list where you want to capture any number of items and
         |  keep the remainder in an extra list using the List() form""".stripMargin) {
-      val List(f, s, tail@_*) = (1 to 5).toList
+      val List(f, s, xs@_*) = (1 to 5).toList
       f should be(1)
       s should be(2)
-      tail should be(List(3, 4, 5))
+      xs should be(List(3, 4, 5))
     }
 
     it(
@@ -178,7 +178,7 @@ class AdvancedPatternMatchingSpec extends FunSpec with Matchers {
       """will always throw a Match Error if something doesn't match, for example here
         |  is an attempted match with a tuple""".stripMargin) {
       val z: Any = (1, 4.0, "Foo")
-      a[MatchError] should be thrownBy {
+      a [MatchError] should be thrownBy {
         val (x, y) = z
       }
     }
@@ -199,29 +199,95 @@ class AdvancedPatternMatchingSpec extends FunSpec with Matchers {
     }
 
     it( """Lets do up a replicate method""".stripMargin) {
-      pending
+
+      def replicate[A](count:Int, item:A):List[A] = {
+        (count, item) match {
+          case (0, _) => List[A]()
+          case (1, x) => List(x)
+          case (c, x) => x :: replicate(c - 1, x)
+        }
+      }
+
+      val result = replicate(5, "Whoa")
+      result should be (List("Whoa", "Whoa", "Whoa", "Whoa", "Whoa"))
     }
 
     it( """will create a replicate in a tail recursive manner""".stripMargin) {
-      pending
+      def replicate[A](count:Int, item:A):List[A] = {
+        @tailrec
+        def repl(count:Int, item:A, res:List[A]):List[A] = {
+          (count, item) match {
+            case (0, _) => res
+            case (1, x) => x :: res
+            case (c, x) => repl(c - 1, x, x :: res)
+          }
+        }
+        repl(count, item, Nil)
+      }
+
+      val result = replicate(5, "Whoa")
+      result should be (List("Whoa", "Whoa", "Whoa", "Whoa", "Whoa"))
     }
 
+
     it( """should show an empty list because we haven't covered that yet.""") {
-      pending
+       def mySecond[A](list:List[A]):Option[A] = {
+         list match {
+           case Nil => None
+           case _ :: Nil => None
+           case _ :: s :: _ => Some(s)
+         }
+       }
+
+       mySecond(Nil) should be (None)
+       mySecond(List(1)) should be (None)
+       mySecond(List(4, 5)) should be (Some(5))
+       mySecond(List(4, 5, 10)) should be (Some(5))
     }
 
     it( """can also use an alternative pipe to match""") {
-      pending
+      def mySecond[A](list:List[A]):Option[A] = {
+        list match {
+          case Nil | _ :: Nil => None
+          case _ :: s :: _ => Some(s)
+        }
+      }
+
+      def mySecondLF[A](list:List[A]):Option[A] = {
+        list match {
+          case List() | List(_) => None
+          case List(_, s, _*) => Some(s)
+        }
+      }
+
+      mySecond(Nil) should be (None)
+      mySecond(List(1)) should be (None)
+      mySecond(List(4, 5)) should be (Some(5))
+      mySecond(List(4, 5, 10)) should be (Some(5))
     }
 
     it(
       """should have a None in a pattern match, though we have not covered it.  This is just one way
         |  to get the information from an Option[T]""".stripMargin) {
-      pending
+
+      def number2String(x:Int):String = {
+         val map = Map(1 -> "One", 2 -> "Two", 3 -> "Three")
+         map.get(x) match {
+           case Some(c) => s"Found answer: $c"
+           case None    => s"Found nothing"
+         }
+      }
+
+       number2String(1) should be ("Found answer: One")
+       number2String(4) should be ("Found nothing")
     }
 
     it( """should be careful with only Some vs. Option""") {
-      pending
+       val answerToEverything:Option[Int] = Some(42)
+       answerToEverything match {
+         case Some(x) => s"The answer is: $x"
+         case None    => s"There is no answer"
+       }
     }
 
     it( """should also match just simple types like Int, String, etc.""") {
@@ -257,8 +323,7 @@ class AdvancedPatternMatchingSpec extends FunSpec with Matchers {
     }
 
     it(
-      """can do compound matching layers deep, like an Employee,
-        |  in a Some, in List, using the List() form""".stripMargin) {
+      """can do compound matching layers deep, like an Employee, in a Some, in List, using the List() form""") {
       pending
     }
 
@@ -277,9 +342,7 @@ class AdvancedPatternMatchingSpec extends FunSpec with Matchers {
   }
 
   describe("A Regular Pattern Expression Match") {
-    it(
-      """uses .r after a String to Convert it to a Regex Type, from there groups can
-        |  can be determined""".stripMargin) {
+    it("""uses .r after a String to Convert it to a Regex Type, from there groups can can be determined""".stripMargin) {
       pending
     }
   }
