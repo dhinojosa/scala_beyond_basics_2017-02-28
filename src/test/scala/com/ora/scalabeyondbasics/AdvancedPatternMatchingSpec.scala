@@ -343,7 +343,16 @@ class AdvancedPatternMatchingSpec extends FunSpec with Matchers {
 
   describe("A Regular Pattern Expression Match") {
     it("""uses .r after a String to Convert it to a Regex Type, from there groups can can be determined""".stripMargin) {
-      pending
+        val phoneNumber = "400-2013"
+
+        val regex = """(\d{3})-(\d{4})""".r
+
+        val result = phoneNumber match {
+          case regex(pre, suff) => s"Prefix is: $pre, and Suffix is: $suff"
+          case _ => "I don't know"
+        }
+
+        result should be ("Prefix is: 400, and Suffix is: 2013")
     }
   }
 
@@ -362,32 +371,99 @@ class AdvancedPatternMatchingSpec extends FunSpec with Matchers {
 
   describe("Custom pattern matching") {
 
+    object Even {
+       private def isEven(i:Int) = i % 2 == 0
+       def unapply(i:Int):Option[Int] = if (isEven(i)) Some(i) else None
+    }
+
+    object Odd {
+      private def isEven(i:Int) = i % 2 == 0
+      def unapply(i:Int):Option[Int] = if (!isEven(i)) Some(i) else None
+    }
+
     it(
       """uses unapply to extract elements for a pattern match so you can do your own pattern matching,
         |  the unapply method should return an Option and either a tuple or list of the parts""".stripMargin) {
-      pending
+      val num = 410
+
+      val result = num match {
+        case Even(x) => s"$x is even"
+        case Odd(x)  => s"$x is odd"
+      }
+
+      result should be ("410 is even")
     }
 
     it( """while building a pattern match off of another unapply""".stripMargin) {
-      pending
+       val t = (10, 131)
+
+       val result = t match {
+         case (Even(_), Odd(_)) => "One Even, One Odd"
+         case (Even(_), Even(_)) => "Two Evens"
+         case (Odd(_), Even(_)) => "One Odd, One Even"
+         case (Odd(_), Odd(_)) => "Two Odds"
+       }
+
+       result should be ("One Even, One Odd")
     }
 
     it( """can also be used in composing partial functions to form a complete function""") {
-      pending
+        val result = (1 to 4).toList.map {
+          case Even(x) => x * 2;
+          case Odd(y)  => y * 3;
+        }
+
+        result should be (List(3, 4, 9, 8))
     }
   }
 
   describe("Custom pattern matching with an instance") {
+
+    class AllInt[B](val g: (Int, Int) => Int) {
+       val regex = """\d+""".r
+
+       def unapply(s:String):Option[Int]  = {
+         val nums = regex.findAllIn(s)
+         if (nums.isEmpty) None
+         else {
+           Some(nums.map(s => s.toInt).toList.reduce(g))
+         }
+       }
+    }
+
     it(
       """can also extract from an instance just in case it is the instance that contains logic
         |  to extract information, this is the technique used to for regex grouping""".stripMargin) {
-      pending
+
+      val question = "What is the total of 100, 120, 99, 15, and 6?"
+
+      val allInts = new AllInt(_ + _)
+      val result = question match {
+        case allInts(r) => s"The sum is $r"
+        case _ => "No numbers or sum available"
+      }
+
+      result should be ("The sum is 340")
     }
   }
 
   describe("Custom pattern matching with unapplySeq") {
     it("would require an unapplySeq for extracting collections") {
-      pending
+      object WordNumbers {
+        def unapplySeq(s:String):Option[Seq[Int]] = {
+           val regex = """\d+""".r
+           val result = regex.findAllIn(s)
+           if (result.isEmpty) None else Some(result.toSeq.map(_.toInt))
+        }
+      }
+
+      val result = "The score yesterday was 100 to 99" match {
+        case WordNumbers(n1)     => s"single item $n1"
+        case WordNumbers(n1, n2) => s"result is $n1 and $n2"
+        case WordNumbers(n1, n2, _*) => s"result is $n1 and $n2 and more!"
+      }
+
+      result should be ("result is 100 and 99")
     }
   }
 
@@ -396,7 +472,25 @@ class AdvancedPatternMatchingSpec extends FunSpec with Matchers {
       """Companion objects will generally have the unapply or unapplySeq for classes, this also means
         |  that case classes create unapply automatically, but you can create or override your own
         |  particular rules""".stripMargin) {
-      pending
+
+      class Genre(val name:String)
+      object Genre {
+        def unapply(arg: Genre): Option[String] = Some(arg.name)
+      }
+
+      class Movie(val title:String, val year:Int, val genre:Genre)
+      object Movie {
+        def unapply(arg: Movie): Option[(String, Int, Genre)] = Some((arg.title, arg.year, arg.genre))
+      }
+
+      val fifthElement = new Movie("The 5th Element", 1999, new Genre("Science Fiction"))
+
+      val result = fifthElement match {
+        case Movie(_, _, Genre("Science Fiction")) => "SciFi Movie!"
+        case _ => "Boring"
+      }
+
+      result should be ("SciFi Movie!")
     }
   }
 
