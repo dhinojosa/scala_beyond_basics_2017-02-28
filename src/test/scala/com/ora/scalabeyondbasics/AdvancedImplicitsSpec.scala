@@ -14,11 +14,22 @@ class AdvancedImplicitsSpec extends FunSpec with Matchers {
       """is done per scope so in the following example, we will begin with an implicit value
         |  and call it from inside a method which uses a multiple parameter list where one
         |  one group would """.stripMargin) {
-       pending
+
+      //[Int, 100]
+      implicit val rate = 100
+
+      def calc(hours:Int)(implicit rt: Int) = hours * rt
+
+      calc(50) should be (5000)
     }
 
     it("""will allow you to place something manually, if you want to override the implicit value""".stripMargin) {
-       pending
+
+      implicit val rate = 100
+
+      def calc(hours:Int)(implicit rt: Int) = hours * rt
+
+      calc(50)(400) should be (20000)
     }
 
     it(
@@ -26,7 +37,14 @@ class AdvancedImplicitsSpec extends FunSpec with Matchers {
         |  worth noting that what Scala doing are compile time tricks for implicit. One strategy is to
         |  wrap a value in a type to avoid conflict""".stripMargin) {
 
-      pending
+      case class Rate(x:Int)
+      case class Age(x:Int)
+      implicit val rate = Rate(100)
+      implicit val age = Age(40)
+
+      def calc(hours:Int)(implicit rt: Rate) = hours * rate.x
+
+      calc(50) should be (5000)
     }
 
 
@@ -35,22 +53,64 @@ class AdvancedImplicitsSpec extends FunSpec with Matchers {
         |  you don't particularly need to inject everywhere explicitly, in this
         |  case let's discuss Future[+T]""".stripMargin) {
 
-      pending
+      import scala.concurrent._
+
+      implicit val executionContext =
+        ExecutionContext.fromExecutor(Executors.newFixedThreadPool(2))
+
+      val f = Future {
+        println(Thread.currentThread().getName)
+        Thread.sleep(2000)
+        100 + 40
+      }
+
+      f.foreach(a => println(s"We got an answer from our Future: $a"))
     }
 
 
     it( """can bring up any implicit directly by merely calling up implicitly""") {
-       pending
+      case class IceCream(name:String)
+      case class Scoops(num:Int, flavor:IceCream)
+      implicit val flavorOfTheDay = IceCream("St. Patty Cabbage")
+
+      def orderIceCream(num:Int)(implicit flavor:IceCream) = Scoops(num, flavor)
+
+      def orderIceCream2(num:Int):Scoops = {
+        Scoops(num, implicitly[IceCream])
+      }
+
     }
 
     it("""the implicit group parameter list, can contain more than one parameter, but
         |  needs to be in the same implicit parameter group""".stripMargin) {
-      pending
+
+      implicit val bonus = 5000
+      implicit val currency = "Euro"
+
+      def calcYearRate(amount:Int)(implicit bonus:Int, currency:String) = {
+        amount + bonus + " " + currency
+      }
+
+      calcYearRate(60000) should be ("65000 Euro")
     }
 
     it( """can also be replaced with default parameters, choose accordingly""") {
-      pending
+      def calcYearRate(amount:Int, bonus:Int = 5000, currency:String = "Euro") = {
+        amount + bonus + " " + currency
+      }
+
+      calcYearRate(60000) should be ("65000 Euro")
     }
+
+
+    it("""Christopher A. Question: List[String] and List[Double]""") {
+      implicit val strings = List("Foo", "Bar", "Baz")
+      implicit val doubles = List(1.0, 2.0, 3.0)
+
+      val doublesImpl = implicitly[List[Double]]
+      doublesImpl.foldLeft(0.0)(_+_) should be (6.0)
+    }
+
 
     it("""can be used for something like what Ruby has called
         |  monkey patching or Groovy calls mopping where we can add functionality to
@@ -58,21 +118,54 @@ class AdvancedImplicitsSpec extends FunSpec with Matchers {
         |  in the Int class.  This is what we call implicit wrappers.
         |  First we will use a conversion method.""".stripMargin) {
   
-       pending
+       class IntWrapper(x:Int) {
+         def isOdd:Boolean = x % 2 != 0
+         def isEven:Boolean = !isOdd
+       }
+
+       import scala.language.implicitConversions
+
+       implicit def int2IntWrapper(x:Int):IntWrapper = new IntWrapper(x)
+
+       40.isOdd should be (false)
+       25.isOdd should be (true)
+       10.isEven should be (true)
     }
 
 
     it( """Implicit wrappers can be created using a function and is often easier to mental map.""".stripMargin) {
-       pending
-    }
+      class IntWrapper(x:Int) {
+        def isOdd:Boolean = x % 2 != 0
+        def isEven:Boolean = !isOdd
+      }
 
+      import scala.language.implicitConversions
+
+      implicit val int2IntWrapper = (x:Int) => new IntWrapper(x)
+
+      40.isOdd should be (false)
+      25.isOdd should be (true)
+      10.isEven should be (true)
+
+    }
 
     it("""can be use a short hand version of this called implicit classes, before using them
         |  there are some rules:
         |  1. They can only be used inside of an object/trait/class
         |  2. They can only take one parameter in the constructor
-        |  3. There can not be any colliding method name as that with the implicit outer scope""".stripMargin) {
-       pending
+        |  3. There can not be any colliding method name as that
+        |     with the implicit outer scope""".stripMargin) {
+
+      import scala.language.implicitConversions
+
+      implicit class IntWrapper(x:Int) {
+        def isOdd:Boolean = x % 2 != 0
+        def isEven:Boolean = !isOdd
+      }
+
+      40.isOdd should be (false)
+      25.isOdd should be (true)
+      10.isEven should be (true)
     }
 
     it("""can also convert things to make it fit into a particular API, this is called implicit conversion,
