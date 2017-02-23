@@ -212,3 +212,4 @@ project/plugins/project/
 
 .cache-main
 .cache-tests
+!/src/test/scala/com/ora/scalabeyondbasics/AdvancedImplicitsSpec.scala
