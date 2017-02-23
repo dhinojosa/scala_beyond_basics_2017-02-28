@@ -166,23 +166,58 @@ class AdvancedImplicitsSpec extends FunSpec with Matchers {
       40.isOdd should be (false)
       25.isOdd should be (true)
       10.isEven should be (true)
+
+      val t = 1 -> "One" //implicit trickery!
+     
     }
 
-    it("""can also convert things to make it fit into a particular API, this is called implicit conversion,
+    it("""can also convert things to make it fit into a particular API,
+        | this is called implicit conversion,
         | in this scenario we will use a method""".stripMargin) {
-       pending
+       import scala.language.implicitConversions
+
+       sealed abstract class Currency
+       case class Dollar(value:Int) extends Currency
+       case class Yen(value:Int) extends Currency
+
+       implicit def int2Dollar(x:Int):Dollar = Dollar(x)
+
+       def addDollars(x:Dollar, y:Dollar):Dollar = Dollar(x.value + y.value)
+
+       addDollars(50, 100) should be (Dollar(150))
+
+       val a = BigInt(4000)
+       (a + 100) should be (BigInt(4100))
     }
 
-    it("""can also convert things to make it fit into a particular API, this is called implicit conversion,
+    it("""can also convert things to make it fit into a particular API,
+        | this is called implicit conversion,
         | in this scenario we will use a function""".stripMargin) {
-       pending
+      import scala.language.implicitConversions
+
+      sealed abstract class Currency
+      case class Dollar(value:Int) extends Currency
+      case class Yen(value:Int) extends Currency
+
+      implicit val int2Dollar = (x:Int) => Dollar(x)
+
+      def addDollars(x:Dollar, y:Dollar):Dollar = Dollar(x.value + y.value)
+
+      addDollars(50, 100) should be (Dollar(150))
     }
 
     it( """is done automatically in Scala because what is inside of scala.Predef, for example,
-        |  it explains how be can set a scala.Float , and there is java.lang.Float, java primitive float.
+        |  it explains how be can set a scala.Float , and there is java.lang.Float,
+        |  java primitive float.
         |  We can investigate this by looking at
         |  the documentation.""".stripMargin) {
-       pending
+
+      val f: scala.Float = 3000.00f
+      val f2: scala.Float = 100.00f
+
+      val result = java.lang.Math.min(f, f2)
+
+      result should be (100.00f)
     }
   }
 
@@ -190,18 +225,43 @@ class AdvancedImplicitsSpec extends FunSpec with Matchers {
     it( """has a common way, to store that particular implicit
         |  recipe in an object that makes should make
         |  sense and then import that object""".stripMargin) {
-       pending
+
+      //Put this in a separate file
+      object MyPredef {
+        implicit class IntWrapper(x:Int) {
+          def isOdd:Boolean = x % 2 != 0
+          def isEven:Boolean = !isOdd
+        }
+      }
+
+      import MyPredef._
+      10.isOdd should be (false)
     }
 
     it( """can also use a companion object to store any implicit recipes""".stripMargin) {
-       pending
+       class Artist(val firstName:String, val lastName:String)
+       object Artist {
+         import scala.language.implicitConversions
+         implicit def tupleToArtist(t:(String, String)) = new Artist(t._1, t._2)
+       }
+
+       def playArtist(a:Artist) = s"${a.firstName} is onstage"
+
+       playArtist("Stevie" -> "Wonder") should be ("Stevie is onstage")
     }
 
     it( """can also use a package object to store some of these implicits""") {
-       pending
+       def numItems(list:List[String]) = list.reduce((total, next) => total + next)
+
+       numItems(3 -> "Whoa") should be ("WhoaWhoaWhoa")
     }
 
     it("""can use JavaConverters to convert a collection in Java to Scala and vice versa""") {
+
+      import scala.collection.JavaConverters._
+      import java.time._
+      ZoneId.getAvailableZoneIds.asScala.toList.filter(_.startsWith("America"))
+        .map(s => s.split("/")(1)).sorted.filter(_.startsWith("E"))
       pending
     }
   }
@@ -210,7 +270,24 @@ class AdvancedImplicitsSpec extends FunSpec with Matchers {
     it("""Uses <% inside of a parameterized type declaration to determine if there is a conversion available
         | then within you can treat an object as an object of that type. It is unorthodox, and has since been
         | deprecated.""".stripMargin) {
-       pending
+
+       class Employee(val firstName:String, val lastName:String)
+
+       import scala.language.implicitConversions
+
+       implicit def str2Employee(str:String):Employee = {
+         str.split(" ").toList match {
+           case Nil => new Employee("John", "Doe")
+           case fn :: Nil => new Employee(fn, "Doe")
+           case fn :: ln :: _  => new Employee(fn, ln)
+         }
+       }
+
+       def hireEmployee[A <% Employee](a:A) = {
+         s"Hired ${a.firstName} ${a.lastName}"
+       }
+
+       hireEmployee("Joe Armstrong") should be ("Hired Joe Armstrong")
     }
   }
 
@@ -219,9 +296,29 @@ class AdvancedImplicitsSpec extends FunSpec with Matchers {
       |  this provides a way to check that something is something can be implicitly defined but
       |  gives the end user no opportunity to the ability to inject a different implementation""".stripMargin) {
 
-    it("""uses the signature [T:WrappedType], which is equivalent to (t:T)(implicit w:WrappedType[T])
+    it("""uses the signature [T:WrappedType], which is
+          | equivalent to (t:T)(implicit w:WrappedType[T])
           | let's try it with """.stripMargin) {
-       pending
+
+      trait Loggable[T] {
+        def log(t:T):String
+      }
+
+      class Employee(val firstName:String, val lastName:String)
+
+      implicit val loggable:Loggable[Employee] = new Loggable[Employee] {
+        override def log(t: Employee):String =
+          s"Employee{firstName:${t.firstName}, lastName:${t.lastName}}"
+      }
+
+      //implicitly Loggable[T]
+      def writeItOut[T:Loggable](t:T) = {
+        val loggable = implicitly[Loggable[T]]
+        loggable.log(t)
+      }
+
+      writeItOut(new Employee("Carla", "Sanchez")) should be ("Employee{firstName:Carla, lastName:Sanchez}")
+
     }
   }
 
